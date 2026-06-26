@@ -1,26 +1,33 @@
-import {
-  ref,
-  uploadBytes,
-  getDownloadURL,
-  deleteObject,
-} from "firebase/storage";
-import { getFirebaseStorage } from "./config";
+const CLOUDINARY_CLOUD_NAME = "YOUR_CLOUD_NAME";
+const CLOUDINARY_UPLOAD_PRESET = "YOUR_UPLOAD_PRESET";
 
 export async function uploadEquipmentPhoto(
   file: File,
   equipmentId: string
 ): Promise<string> {
-  const storage = getFirebaseStorage();
-  const timestamp = Date.now();
-  const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-  const path = `equipment/${equipmentId}/${timestamp}-${safeName}`;
-  const storageRef = ref(storage, path);
+  const formData = new FormData();
 
-  await uploadBytes(storageRef, file, {
-    contentType: file.type,
-  });
+  formData.append("file", file);
+  formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
 
-  return getDownloadURL(storageRef);
+  // klasör mantığı (Cloudinary içinde organize eder)
+  formData.append("folder", `equipment/${equipmentId}`);
+
+  const res = await fetch(
+    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+    {
+      method: "POST",
+      body: formData,
+    }
+  );
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    throw new Error(data?.error?.message || "Cloudinary upload failed");
+  }
+
+  return data.secure_url;
 }
 
 export async function uploadMultiplePhotos(
@@ -30,34 +37,41 @@ export async function uploadMultiplePhotos(
 ): Promise<string[]> {
   const urls: string[] = [];
 
-  for (let i = 0; i < files.length; i++) {
-    const url = await uploadEquipmentPhoto(files[i], equipmentId);
+  let completed = 0;
+
+  for (const file of files) {
+    const url = await uploadEquipmentPhoto(file, equipmentId);
     urls.push(url);
-    onProgress?.(i + 1, files.length);
+
+    completed++;
+    onProgress?.(completed, files.length);
   }
 
   return urls;
 }
 
 export async function deletePhoto(photoUrl: string): Promise<void> {
-  try {
-    const storage = getFirebaseStorage();
-    const storageRef = ref(storage, photoUrl);
-    await deleteObject(storageRef);
-  } catch {
-    // Photo may be external URL — ignore deletion errors
-  }
+  // Cloudinary client-side delete güvenli değildir
+  // sadece UI'dan kaldırıyoruz
+  console.warn("Cloudinary delete requires backend (ignored):", photoUrl);
 }
 
 export function validateImageFile(file: File): string | null {
-  const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+  const allowedTypes = [
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/gif",
+  ];
   const maxSize = 5 * 1024 * 1024; // 5MB
 
   if (!allowedTypes.includes(file.type)) {
     return "Only JPEG, PNG, WebP and GIF images are allowed.";
   }
+
   if (file.size > maxSize) {
     return "Image must be smaller than 5MB.";
   }
+
   return null;
 }
