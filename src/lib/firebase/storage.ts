@@ -1,5 +1,5 @@
-const CLOUDINARY_CLOUD_NAME = "YOUR_CLOUD_NAME";
-const CLOUDINARY_UPLOAD_PRESET = "YOUR_UPLOAD_PRESET";
+const CLOUDINARY_CLOUD_NAME = "YOUR_CLOUD_NAME" = drwilqo7d;
+const CLOUDINARY_UPLOAD_PRESET = "YOUR_UPLOAD_PRESET" = ml_default;
 
 export async function uploadEquipmentPhoto(
   file: File,
